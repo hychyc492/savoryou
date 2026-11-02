@@ -1,0 +1,41 @@
+{
+  "name": "savoru-server",
+  "private": true,
+  "version": "0.2.0",
+  "type": "module",
+  "scripts": {
+    "dev": "node --env-file=.env --watch src/index.js",
+    "start": "node --env-file=.env src/index.js",
+    "schema:sqlite": "node scripts/make-sqlite-schema.mjs",
+    "db:generate": "prisma generate",
+    "db:generate:sqlite": "prisma generate --schema prisma/schema.sqlite.prisma",
+    "db:push:sqlite": "prisma db push --schema prisma/schema.sqlite.prisma",
+    "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy && prisma generate",
+    "db:seed": "node --env-file=.env prisma/seed.js",
+    "db:sqlite": "npm run db:generate:sqlite && npm run db:push:sqlite && npm run db:seed",
+    "seed": "node --env-file=.env prisma/seed.js",
+    "test": "node --env-file=.env --test tests/unit.test.js tests/api.test.js",
+    "test:unit": "node --env-file=.env --test tests/unit.test.js",
+    "test:api": "node --env-file=.env --test tests/api.test.js",
+    "share": "node scripts/tunnel.mjs"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.5.0",
+    "bcryptjs": "^2.4.3",
+    "compression": "^1.7.5",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "express-rate-limit": "^7.4.1",
+    "helmet": "^8.0.0",
+    "jsonwebtoken": "^9.0.2",
+    "morgan": "^1.10.0",
+    "prisma": "^6.5.0",
+    "swagger-ui-express": "^5.0.1",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "supertest": "^7.3.1"
+  }
+}

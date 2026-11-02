@@ -1,0 +1,40 @@
+# Render Blueprint：连接仓库后一键创建 Web 服务 + PostgreSQL
+# 用法：Render 控制台 → New → Blueprint → 选择本仓库（会读取本文件）
+services:
+  - type: web
+    name: savoru
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    healthCheckPath: /api/health
+    # 首次启动自动迁移 + 写入目录种子（幂等）
+    dockerCommand: sh -c "npx prisma migrate deploy && node prisma/seed.js && node src/index.js"
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: HOST
+        value: 0.0.0.0
+      - key: JWT_SECRET
+        generateValue: true
+      - key: COOKIE_SECRET
+        generateValue: true
+      - key: COOKIE_SECURE
+        value: 'true'
+      - key: ACCESS_TOKEN_TTL
+        value: 2h
+      - key: REFRESH_TOKEN_TTL_DAYS
+        value: '30'
+      - key: ADMIN_USERNAME
+        value: admin
+      - key: ADMIN_PASSWORD
+        sync: false # 部署时在控制台填写
+      - key: DATABASE_URL
+        fromDatabase:
+          name: savoru-db
+          property: connectionString
+
+databases:
+  - name: savoru-db
+    plan: free
+    databaseName: savoru
+    user: savoru

@@ -1,0 +1,52 @@
+# 一键部署（含 PostgreSQL）。在服务器上执行： docker compose up -d --build
+# 需要同目录的 .env（见 .env.example）提供密钥与管理员口令。
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-savoru}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-savoru}
+      POSTGRES_DB: ${POSTGRES_DB:-savoru}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-savoru} -d ${POSTGRES_DB:-savoru}']
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    # 生产建议不暴露 5432 到公网；如需本地连库再打开
+    # ports: ['5432:5432']
+
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-savoru}:${POSTGRES_PASSWORD:-savoru}@db:5432/${POSTGRES_DB:-savoru}?schema=public
+      NODE_ENV: production
+      PORT: '3001'
+      HOST: 0.0.0.0
+      JWT_SECRET: ${JWT_SECRET:?请在 .env 设置 JWT_SECRET}
+      COOKIE_SECRET: ${COOKIE_SECRET:?请在 .env 设置 COOKIE_SECRET}
+      COOKIE_SECURE: ${COOKIE_SECURE:-true}
+      ACCESS_TOKEN_TTL: ${ACCESS_TOKEN_TTL:-2h}
+      REFRESH_TOKEN_TTL_DAYS: ${REFRESH_TOKEN_TTL_DAYS:-30}
+      CORS_ORIGINS: ${CORS_ORIGINS:-}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?请在 .env 设置 ADMIN_PASSWORD}
+    ports:
+      - '${APP_PORT:-3001}:3001'
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:3001/api/health >/dev/null 2>&1 || exit 1']
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+    # 首次启动自动迁移 + 写入目录种子（幂等）
+    command: sh -c "npx prisma migrate deploy && node prisma/seed.js && node src/index.js"
+
+volumes:
+  pgdata:

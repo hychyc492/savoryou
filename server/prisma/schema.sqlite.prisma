@@ -1,0 +1,160 @@
+// 自动生成：由 schema.prisma 派生（provider=sqlite），请勿手工编辑。
+// 重新生成：npm run schema:sqlite
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+/// 用户：role=user|admin，tokenVersion 用于「改密/登出后旧 token 失效」
+model User {
+  id            Int            @id @default(autoincrement())
+  username      String         @unique
+  passwordHash  String
+  role          String         @default("user")
+  tokenVersion  Int            @default(0)
+  createdAt     DateTime       @default(now())
+  reviews       Review[]
+  favorites     Favorite[]
+  dishes        Dish[]
+  checkins      Checkin[]
+  refreshTokens RefreshToken[]
+  auditLogs     AuditLog[]     @relation("actor")
+}
+
+/// 刷新令牌：只存哈希，支持撤销与轮换
+model RefreshToken {
+  id        String    @id @default(uuid())
+  userId    Int
+  tokenHash String
+  expiresAt DateTime
+  revokedAt DateTime?
+  userAgent String    @default("")
+  ip        String    @default("")
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+/// 店铺目录：食堂 / 校内店铺 / 校外店铺统一入库，id 沿用现有（c-xxx / 高德 POI）
+model Shop {
+  id           String     @id
+  name         String
+  shortName    String     @default("")
+  kind         String                               // canteen | campusShop | shop
+  group        String                               // campus | nearby
+  category     String     @default("")
+  address      String     @default("")
+  area         String     @default("")              // 校外街区
+  lng          Float
+  lat          Float
+  distance     Int?                                 // 校外直线距离（米）
+  amapRating   Float?
+  amapCost     Int?
+  openHours    String     @default("")              // 原始营业时间文本
+  openSegments String     @default("")              // 结构化：分钟段 "390-1230,990-1320"
+  tel          String     @default("")
+  photo        String     @default("")
+  photos       String     @default("")              // JSON 数组文本
+  isFeatured   Boolean    @default(false)           // 校外精选
+  isOnCampus   Boolean    @default(false)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  dishes       Dish[]
+  reviews      Review[]
+  favorites    Favorite[]
+  checkins     Checkin[]
+
+  @@index([group, kind])
+  @@index([area])
+  @@index([amapRating])
+  @@index([lng, lat])
+  @@index([isFeatured])
+}
+
+/// 一个用户对一家店只保留一条评价（再提交即更新）
+model Review {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  targetId  String
+  rating    Int
+  content   String   @default("")
+  tags      String   @default("")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  shop      Shop     @relation(fields: [targetId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, targetId])
+  @@index([targetId])
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model Favorite {
+  userId    Int
+  targetId  String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  shop      Shop     @relation(fields: [targetId], references: [id], onDelete: Cascade)
+
+  @@id([userId, targetId])
+  @@index([targetId])
+}
+
+/// 菜品：restaurantId 关联 Shop；用户提交先落 pending，审核后 published / rejected
+model Dish {
+  id           Int      @id @default(autoincrement())
+  restaurantId String
+  name         String
+  price        Int?
+  stall        String   @default("")
+  spicy        Int      @default(0)
+  mealSlots    String   @default("")
+  tags         String   @default("")
+  status       String   @default("pending")
+  note         String   @default("")
+  createdBy    Int?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  creator      User?    @relation(fields: [createdBy], references: [id], onDelete: SetNull)
+  shop         Shop     @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@index([restaurantId, status])
+  @@index([status])
+}
+
+/// 打卡：一个用户每天在同一家店只记一次；date 用 YYYY-MM-DD（北京时间）
+model Checkin {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  targetId  String
+  date      String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  shop      Shop     @relation(fields: [targetId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, targetId, date])
+  @@index([targetId, date])
+  @@index([date])
+  @@index([userId])
+}
+
+/// 审计日志：管理员审核、登录等关键动作
+model AuditLog {
+  id        Int      @id @default(autoincrement())
+  actorId   Int?
+  action    String
+  targetId  String   @default("")
+  detail    String   @default("")
+  createdAt DateTime @default(now())
+  actor     User?    @relation("actor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+  @@index([action])
+}

@@ -1,0 +1,19 @@
+{
+  "name": "savoru",
+  "private": true,
+  "version": "0.1.0",
+  "description": "SavorU · 河科大美食地图（Vue 3 + Express + Prisma）",
+  "scripts": {
+    "setup": "npm --prefix server install && npm --prefix client install",
+    "dev:server": "npm --prefix server run dev",
+    "dev:client": "npm --prefix client run dev",
+    "build": "npm --prefix client run build",
+    "start": "npm --prefix server start",
+    "seed": "npm --prefix server run seed",
+    "test": "npm --prefix server test",
+    "db:sqlite": "npm --prefix server run db:sqlite",
+    "db:deploy": "npm --prefix server run db:deploy",
+    "smoke:pg": "node --env-file=server/.env server/scripts/pg-smoke.mjs",
+    "verify:migration": "node server/scripts/verify-migration.mjs"
+  }
+}
